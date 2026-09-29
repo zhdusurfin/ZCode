@@ -17,7 +17,8 @@ import { isWorkspaceReadOnly, isWorkspaceTab } from "@/store/tabStore.js";
 import type { TaskChatMessage as TestChatMessage } from "@/lib/taskChatMessageTypes.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
-import { getPathLeaf } from "@/lib/path.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
 import {
   addPluginStoreOpenListener,
   type PluginStoreOpenTarget,
@@ -597,7 +598,13 @@ export function App({
     },
     [handleOpenTreemapping, workspaceReadOnlyReason],
   );
-  const projectName = getPathLeaf(workspaceAbsPath);
+  // 项目别名：display-only 设置；标题区沿用此解析结果（settings tab 下 identity 为空时自然回退路径末段）。
+  const { aliases: projectAliases } = useProjectAliases();
+  const projectName = resolveWorkspaceDisplayName({
+    workspacePath: workspaceAbsPath,
+    workspaceIdentity,
+    aliases: projectAliases,
+  });
   const handleOpenTaskFind = useCallback(() => {
     // Cmd/Ctrl+F 语义是“查找对话”，之前误复用了 Cmd/Ctrl+P 的文件搜索入口，
     // 导致用户在 quick pick 里点 Find 或按快捷键时会跳到打开文件。这里拆成独立状态，避免影响文件搜索链路。

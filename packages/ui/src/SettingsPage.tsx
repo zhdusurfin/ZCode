@@ -30,7 +30,8 @@ import { toast } from "@/components/ui/toast.js";
 import { DesktopWindowFrame } from "@/DesktopWindowFrame.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
-import { getPathLeaf } from "@/lib/path.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
 import { useProviderSettingsView } from "@/hooks/useProviderSettingsView.js";
 import { useUsageEntitlement } from "@/hooks/useUsageEntitlement.js";
 import {
@@ -664,20 +665,30 @@ export function SettingsPage({
   const onboardingRecordService = services.onboardingRecordService;
   const localHostServices = useBaseWorkspaceServices();
   const { settings: sharedSettings, update: updateSharedSettings } = useSettings();
+  const { aliases: projectAliases } = useProjectAliases();
   const memoryWorkspaceDisplayNames = useMemo(() => {
     const names = new Set<string>();
     // Memory Scope 的项目顺序以 settings.json recentProjects 为准；打开中的
     // Workspace 只补充尚未持久化的项目，不能抢占最近项目排序。
+    // 项目名跟随 display-only 别名，未设置时回退路径末段。
     for (const path of sharedSettings?.recentProjects ?? []) {
-      const name = getPathLeaf(path).trim();
+      const name = resolveWorkspaceDisplayName({
+        workspacePath: path,
+        aliases: projectAliases,
+      }).trim();
       if (name) names.add(name);
     }
     for (const tab of workspaceTabs) {
-      const name = tab.label.trim() || getPathLeaf(tab.workspacePath).trim();
+      const name = resolveWorkspaceDisplayName({
+        workspacePath: tab.workspacePath,
+        workspaceIdentity: tab.workspaceIdentity,
+        label: tab.label,
+        aliases: projectAliases,
+      }).trim();
       if (name) names.add(name);
     }
     return [...names];
-  }, [sharedSettings?.recentProjects, workspaceTabs]);
+  }, [projectAliases, sharedSettings?.recentProjects, workspaceTabs]);
   const memoryEnabled = sharedSettings?.memoryEnabled === true;
   const nativeSearchEnhancementsEnabled = sharedSettings?.nativeSearchEnhancementsEnabled !== false;
   const askUserQuestionAutoResolutionEnabled =

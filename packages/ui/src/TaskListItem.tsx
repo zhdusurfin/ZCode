@@ -16,7 +16,8 @@ import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { getPathLeaf } from "@/lib/path.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
 import { formatTaskTitleWithChanges, getTaskChangeSummary } from "@/lib/taskChangeSummary.js";
 import {
   deriveTaskLeadingIndicator,
@@ -382,7 +383,13 @@ export const MemoTaskItem = memo(function TaskListItem({
     id: isArchiveConfirming ? "common.confirm" : "taskList.archive",
   });
   const taskTitleWithChanges = formatTaskTitleWithChanges(taskTitle, taskChangeSummary, intl);
-  const workspaceLabel = getPathLeaf(task.workspacePath);
+  const { aliases: projectAliases } = useProjectAliases();
+  // 任务行的 workspace 标签跟随项目别名（display-only），无别名时保持原路径末段。
+  const workspaceLabel = resolveWorkspaceDisplayName({
+    workspacePath: task.workspacePath,
+    workspaceIdentity: task.workspaceIdentity,
+    aliases: projectAliases,
+  });
   const taskItemKey = `${buildTaskWorkspaceKey(task.workspacePath, task.workspaceIdentity)}:${task.taskId}`;
   // 工作流运行行：标题下的第二条通道，
   // 与前置 16px 槽（error > unread > spinner）互不占位。只在会话带 run 摘要时挂组件。

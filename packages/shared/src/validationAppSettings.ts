@@ -419,6 +419,9 @@ function migrateLegacyWorkspaceSession(value: unknown): unknown {
 
 const appSettingsObjectSchema = z.object({
   recentProjects: z.array(z.string()).default([]),
+  // 项目显示别名：键为 workspaceIdentity?.trim() || workspacePath，schema 只管形状，
+  // trim / 控制字符 / 长度等语义校验在 ui 的别名草稿归一化阶段容错。
+  projectAliases: z.record(z.string(), z.string()).optional(),
   locale: localeSchema.default("zh-CN"),
   // 快捷键用户覆盖（语义校验在 ui/src/shortcuts 生效表阶段容错，schema 只管形状）
   shortcutBindings: z.record(z.string(), z.array(z.string())).optional(),
@@ -492,6 +495,7 @@ export const appSettingsSchema = z.preprocess(
 
 export const appSettingsPatchSchema = z.object({
   recentProjects: z.array(z.string()).optional(),
+  projectAliases: z.record(z.string(), z.string()).optional(),
   locale: localeSchema.optional(),
   shortcutBindings: z.record(z.string(), z.array(z.string())).optional(),
   localePreference: localePreferenceSchema.optional(),

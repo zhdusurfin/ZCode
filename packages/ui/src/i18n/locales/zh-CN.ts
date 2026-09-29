@@ -1521,6 +1521,12 @@ const zhCN: Record<string, string> = {
   "workspaceSidebar.searchArchivedTasksPlaceholder": "搜索归档任务...",
   "workspaceSidebar.closeTaskSearch": "关闭任务搜索",
   "workspaceSidebar.remove": "移除",
+  "workspaceSidebar.rename": "重命名项目",
+  "workspaceSidebar.renameTitle": "重命名项目",
+  "workspaceSidebar.renameLabel": "项目别名",
+  "workspaceSidebar.renamePlaceholder": "文件夹名称",
+  "workspaceSidebar.renameHint": "留空则显示文件夹名称。",
+  "workspaceSidebar.renameFailed": "重命名项目失败",
   "workspaceSidebar.removeRunningWorkspace.title": "移除运行中的项目？",
   "workspaceSidebar.removeRunningWorkspace.description":
     "该项目还有运行中的对话或 Agent。移除项目会停止并释放相关运行状态，历史任务不会被删除。",

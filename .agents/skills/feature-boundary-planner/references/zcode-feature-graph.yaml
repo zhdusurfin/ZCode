@@ -207,6 +207,27 @@ nodes:
         symbol: buildRemoteWorkspaceIdentity
       - file: packages/services/src/zcode-agent/zcodeAgentConnectionScope.ts
         symbol: workspaceKey
+  - id: capability.project-alias
+    kind: capability
+    label: Project alias display name
+    aliases:
+      - project alias
+      - workspace rename
+      - rename project
+      - 项目别名
+      - алиас проекта
+    codeSeeds:
+      - file: packages/ui/src/lib/workspaceDisplayName.ts
+        symbol: resolveWorkspaceDisplayName
+      - file: packages/ui/src/WorkspaceAliasDialog.tsx
+        symbol: WorkspaceAliasDialog
+      - file: packages/ui/src/hooks/useSettingService.ts
+        symbol: useProjectAliases
+    invariants:
+      - "Alias is display-only: it never enters workspacePath execution, agent context or RPC;
+        missing alias falls back to tab label then path leaf."
+      - "Alias writes bind to base services and fail explicitly when settingService is unavailable;
+        reads degrade to fallback names."
   - id: service.workspace-identity-builder
     kind: service
     label: Remote workspace identity builder
@@ -526,6 +547,12 @@ edges:
     to: boundary.workspace-key
     type: supplies-identity-for
     rank: must-inspect
+  - from: capability.project-alias
+    to: boundary.workspace-key
+    type: keys-alias-map-by
+    rank: must-inspect
+    condition: projectAliases keys use workspaceIdentity?.trim() || workspacePath; same path on
+      different remote hosts keeps independent aliases.
   - from: service.zcode-agent-connection-scope
     to: boundary.workspace-key
     type: isolated-by

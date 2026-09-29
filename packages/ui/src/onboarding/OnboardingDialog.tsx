@@ -5,7 +5,8 @@ import { useClaudeSessionMigration } from "@/hooks/useClaudeSessionMigration.js"
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { useSettingsSync } from "@/hooks/useSettingsSync.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { getPathLeaf } from "@/lib/path.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
 import { logger } from "@/logger.js";
 import {
   getOnboardingStepMessageKey,
@@ -110,6 +111,7 @@ export function OnboardingDialog(props: {
     workspaceIdentity: props.workspaceIdentity,
   });
 
+  const { aliases: projectAliases } = useProjectAliases();
   const workspaceCandidates = useMemo<OnboardingWorkspaceCandidate[]>(() => {
     const byWorkspace = new Map<string, OnboardingWorkspaceCandidate>();
 
@@ -122,13 +124,16 @@ export function OnboardingDialog(props: {
 
       byWorkspace.set(candidate.workspacePath, {
         workspacePath: candidate.workspacePath,
-        label: getPathLeaf(candidate.workspacePath),
+        label: resolveWorkspaceDisplayName({
+          workspacePath: candidate.workspacePath,
+          aliases: projectAliases,
+        }),
         sessionCount: 1,
       });
     }
 
     return [...byWorkspace.values()].sort((left, right) => right.sessionCount - left.sessionCount);
-  }, [sessionMigration.candidates]);
+  }, [projectAliases, sessionMigration.candidates]);
 
   const externalImportSelections = useMemo(
     () => [

@@ -27,7 +27,8 @@ import { TaskRenameDialog } from "@/TaskRenameDialog.js";
 import { shouldHideGroupedTaskContent, useGroupedTaskView } from "@/hooks/useGroupedTaskView.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
-import { getPathLeaf } from "@/lib/path.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
 import { resolveTaskFileTreeTargetFromTabs } from "@/lib/taskFileTreeTarget.js";
 import { toast } from "@/components/ui/toast.js";
 import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
@@ -856,6 +857,7 @@ export function WorkspaceGroupedTasksSection({
     [workspaceTabs],
   );
 
+  const { aliases: projectAliases } = useProjectAliases();
   const getTaskWorkspaceLabel = useCallback(
     (task: ZCodeTaskMeta) => {
       const tab = workspaceTabByKey.get(
@@ -866,9 +868,17 @@ export function WorkspaceGroupedTasksSection({
           id: "workspaceSidebar.conversationsSection",
         });
       }
-      return tab?.label || getPathLeaf(task.workspacePath) || task.workspacePath;
+      // 分组标题跟随项目别名（display-only），无别名时保持 tab label / 路径末段。
+      return (
+        resolveWorkspaceDisplayName({
+          workspacePath: task.workspacePath,
+          workspaceIdentity: task.workspaceIdentity,
+          label: tab?.label,
+          aliases: projectAliases,
+        }) || task.workspacePath
+      );
     },
-    [intl, workspaceTabByKey],
+    [intl, projectAliases, workspaceTabByKey],
   );
   const draftWorkspaceLabel = useMemo(() => {
     const tab = workspaceTabByKey.get(
@@ -879,8 +889,15 @@ export function WorkspaceGroupedTasksSection({
         id: "workspaceSidebar.conversationsSection",
       });
     }
-    return tab?.label || getPathLeaf(activeWorkspacePath) || activeWorkspacePath;
-  }, [activeWorkspaceIdentity, activeWorkspacePath, intl, workspaceTabByKey]);
+    return (
+      resolveWorkspaceDisplayName({
+        workspacePath: activeWorkspacePath,
+        workspaceIdentity: activeWorkspaceIdentity,
+        label: tab?.label,
+        aliases: projectAliases,
+      }) || activeWorkspacePath
+    );
+  }, [activeWorkspaceIdentity, activeWorkspacePath, intl, projectAliases, workspaceTabByKey]);
 
   const getTaskRemoteSessionId = useCallback(
     (task: ZCodeTaskMeta) =>

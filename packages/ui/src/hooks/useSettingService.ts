@@ -6,6 +6,8 @@ import { APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL, type AppSettings } f
 import type { ISettingService } from "@zcode/services";
 import { useServices } from "./useServices.js";
 import { usePlatform } from "./usePlatform.js";
+import { useBaseWorkspaceServices } from "./useWorkspaceServices.js";
+import { upsertProjectAlias } from "@/lib/workspaceDisplayName.js";
 
 type SettingsSnapshot = {
   settings: AppSettings | null;
@@ -106,7 +108,17 @@ async function refreshSettingsStore(settingService: ISettingService | undefined)
 
 /** 获取和更新应用设置 */
 export function useSettings() {
-  const { botsService, broadcastService, settingService, zcodeAgentService } = useServices();
+  const { settingService } = useServices();
+  return useSettingsBoundToService(settingService);
+}
+
+/**
+ * 把 settings 读写绑定到指定 settingService。
+ * 激活远端 tab 时 context services 指向远端 host（没有 settingService），
+ * project alias 这类本机设置需要经 useBaseWorkspaceServices 绑定本机服务读写。
+ */
+function useSettingsBoundToService(settingService: ISettingService | undefined) {
+  const { botsService, broadcastService, zcodeAgentService } = useServices();
   const platform = usePlatform();
   const settingsStore = getSettingsStore(settingService);
   const [snapshot, setSnapshot] = useState<SettingsSnapshot>(settingsStore.snapshot);
@@ -139,6 +151,10 @@ export function useSettings() {
 
   const update = useCallback(
     async (patch: Partial<AppSettings>) => {
+      if (!settingService) {
+        // 绑定的服务不可用（如远程窗口）时显式失败，让调用方进入错误分支而不是静默丢写。
+        throw new Error("Setting service is unavailable in this environment");
+      }
       await settingService.update(patch);
       platform.syncAppSettings?.(patch);
       await refresh();
@@ -202,4 +218,43 @@ export function useRecentProjects() {
       await update({ recentProjects: updated });
     },
   };
+}
+
+/**
+ * 项目显示别名的便捷 hook：读取 AppSettings.projectAliases 并提供单键更新。
+ * 别名是 display-only（见 lib/workspaceDisplayName.ts），只影响 UI 文案。
+ */
+export function useProjectAliases() {
+  // 别名属于本机 settings.json：读写都绑定 base services，
+  // 激活远端 tab 时 context services 指向远端 host（没有 settingService）。
+  const { settingService } = useBaseWorkspaceServices();
+  const { settings, update } = useSettingsBoundToService(settingService);
+
+  const setProjectAlias = useCallback(
+    async (
+      workspacePath: string,
+      workspaceIdentity: string | null | undefined,
+      aliasDraft: string,
+    ) => {
+      if (!settingService) {
+        // accessor 是通用 RPC proxy，无法用 truthiness 预判能力；绑定服务缺失时显式抛错，
+        // 由弹窗展示失败文案，而不是静默丢写。
+        throw new Error("Setting service is unavailable in this environment");
+      }
+      // 必须合并到最新落盘状态再写：打开 workspace 等动作会并发写 recentProjects 等字段，
+      // 基于组件 snapshot 的旧值整表覆盖会把并发写入抹掉（与 recentProjects 同一套约束）。
+      const current = await settingService.get();
+      await update({
+        projectAliases: upsertProjectAlias(
+          current.projectAliases,
+          workspacePath,
+          workspaceIdentity,
+          aliasDraft,
+        ),
+      });
+    },
+    [settingService, update],
+  );
+
+  return { aliases: settings?.projectAliases, setProjectAlias };
 }

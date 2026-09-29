@@ -32,6 +32,8 @@ import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay
 import { formatTaskRelativeTime } from "@/lib/taskListItemPresentation.js";
 import { toWorkspaceRelativePath } from "@/lib/taskChangeSummary.js";
 import { getPathLeaf } from "@/lib/path.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
 import { logger } from "@/logger.js";
 import { HighlightedMatchText } from "@/quickpick/HighlightedMatchText.js";
 import { QUICK_PICK_SECTION_ORDER, type QuickPickCommand } from "@/quickpick/quickPickCommands.js";
@@ -487,15 +489,21 @@ export const CommandCenterDialog = memo(function CommandCenterDialogComponent({
         ? COMMAND_CENTER_TASK_RESULT_LIMIT + (activeTaskId ? 1 : 0)
         : COMMAND_CENTER_CONTEXT_SECTION_LIMIT + (activeTaskId ? 1 : 0),
   });
+  const { aliases: projectAliases } = useProjectAliases();
   const workspaceLabelByKey = useMemo(
     () =>
       new Map(
         effectiveWorkspaceTabs.map((tab) => [
           tab.workspaceIdentity?.trim() || tab.workspacePath,
-          tab.label,
+          resolveWorkspaceDisplayName({
+            workspacePath: tab.workspacePath,
+            workspaceIdentity: tab.workspaceIdentity,
+            label: tab.label,
+            aliases: projectAliases,
+          }),
         ]),
       ),
-    [effectiveWorkspaceTabs],
+    [effectiveWorkspaceTabs, projectAliases],
   );
   const commandOptions = useMemo(
     () =>

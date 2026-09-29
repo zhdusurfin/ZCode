@@ -20,6 +20,7 @@ import {
   InfoIcon,
   ListTree,
   LoaderCircle,
+  Pencil,
   RefreshCwIcon,
   MessageCirclePlus,
   XIcon,
@@ -51,6 +52,11 @@ import {
   buildWorkspaceSessionKey,
   formatRemoteWorkspaceDisplayLabel,
 } from "@/lib/remoteWorkspaceHistory.js";
+import { getPathLeaf } from "@/lib/path.js";
+import { getWorkspaceKey } from "@/lib/workspaceKey.js";
+import { resolveWorkspaceDisplayName } from "@/lib/workspaceDisplayName.js";
+import { useProjectAliases } from "@/hooks/useSettingService.js";
+import { WorkspaceAliasDialog } from "@/WorkspaceAliasDialog.js";
 import { TaskList } from "@/TaskList.js";
 import { selectWorkspaceZCodeState, useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
@@ -61,6 +67,7 @@ import {
   TID_WORKSPACE_CLOSE,
   TID_WORKSPACE_FILE_TREE_BUTTON,
   TID_WORKSPACE_ITEM,
+  TID_WORKSPACE_RENAME,
   testId,
 } from "@zcode/shared";
 import type { ZCodeTaskMeta } from "@zcode/shared";
@@ -232,7 +239,24 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     isDisconnectedRemoteWorkspace && reconnectingRemoteWorkspaceKeys.includes(remoteWorkspaceKey),
   );
   const remoteWorkspaceError = remoteWorkspaceErrorByWorkspaceKey[remoteWorkspaceKey];
-  const workspaceSidebarLabel = formatRemoteWorkspaceDisplayLabel(tab.label, tab.remoteTarget);
+  // 项目别名是本机 display-only 设置：读写绑定 base services，展示名在此统一解析。
+  // accessor 是通用 RPC proxy，无法用 truthiness 判定 settingService 能力；
+  // 写入不可用时由 setProjectAlias 显式抛错，弹窗内展示失败文案。
+  const { aliases } = useProjectAliases();
+  const [aliasDialogOpen, setAliasDialogOpen] = useState(false);
+  const workspaceDisplayName = resolveWorkspaceDisplayName({
+    workspacePath: tab.workspacePath,
+    workspaceIdentity: tab.workspaceIdentity,
+    label: tab.label,
+    aliases,
+  });
+  const hasProjectAlias = Boolean(
+    aliases?.[getWorkspaceKey(tab.workspacePath, tab.workspaceIdentity)]?.trim(),
+  );
+  const workspaceSidebarLabel = formatRemoteWorkspaceDisplayLabel(
+    workspaceDisplayName,
+    tab.remoteTarget,
+  );
   const sshWorkspaceTooltipDetails = getSshWorkspaceTooltipDetails(tab);
   const reconnectRuntimeLogs =
     reconnectingRemoteWorkspaceLogsByWorkspaceKey[remoteWorkspaceKey] ?? [];
@@ -890,6 +914,27 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                ) : hasProjectAlias ? (
+                  // 别名遮住了真实文件夹名；hover 提示真实名称与完整路径，帮助区分同名项目。
+                  // SSH 行的 tooltip 已含完整路径，不重复叠加。
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>{workspaceLabelContent}</TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        align="start"
+                        sideOffset={6}
+                        className="max-w-80 flex-col items-start gap-1 p-2.5 text-left"
+                      >
+                        <span className="text-ui-sm font-medium text-tooltip-foreground">
+                          {getPathLeaf(tab.workspacePath)}
+                        </span>
+                        <span className="min-w-0 break-all font-mono text-ui-xs text-tooltip-foreground">
+                          {tab.workspacePath}
+                        </span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 ) : (
                   workspaceLabelContent
                 )}
@@ -930,6 +975,17 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
                             onOpenMcpSync={() => setRemoteMcpSyncOpen(true)}
                             onOpenPluginSync={() => setRemotePluginSyncOpen(true)}
                           />
+                          <DropdownMenuItem
+                            data-testid={testId(TID_WORKSPACE_RENAME, tab.workspacePath)}
+                            onSelect={() => {
+                              setAliasDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            {intl.formatMessage({
+                              id: "workspaceSidebar.rename",
+                            })}
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             data-testid={testId(TID_WORKSPACE_CLOSE, tab.workspacePath)}
                             onMouseDown={(event) => {
@@ -1196,6 +1252,9 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
           });
         }}
       />
+      {aliasDialogOpen ? (
+        <WorkspaceAliasDialog tab={tab} open={aliasDialogOpen} onOpenChange={setAliasDialogOpen} />
+      ) : null}
     </li>
   );
 });
